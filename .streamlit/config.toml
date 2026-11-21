@@ -1,0 +1,13 @@
+[theme]
+base = "light"
+primaryColor = "#E5358F"
+backgroundColor = "#FFF7FB"
+secondaryBackgroundColor = "#FCEAF4"
+textColor = "#2A1633"
+font = "Poppins:https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap, sans-serif"
+headingFontWeights = 800
+baseRadius = "large"
+buttonRadius = "full"
+
+[client]
+toolbarMode = "minimal"
