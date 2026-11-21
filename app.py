@@ -4,11 +4,13 @@ Run with:  streamlit run app.py
 """
 
 import base64
+import json
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 import booking
 from services import CATEGORIES, CATEGORY_STYLE, IMAGES, PARLOR, SERVICES, STYLISTS
@@ -18,6 +20,9 @@ st.set_page_config(page_title=PARLOR["name"], page_icon="💅", layout="wide")
 ADMIN_PIN = "1234"  # change this before going live
 CUR = PARLOR["currency"]
 MAIN_GRADIENT = "linear-gradient(120deg,#FF3CAC 0%,#C14BFF 50%,#5B6CFF 100%)"
+
+# n8n chat agent (Chat Trigger node → Mode: Embedded Chat, Public: on, Allowed Origins: *)
+N8N_CHAT_URL = "https://superaiagentic.app.n8n.cloud/webhook/c651a451-422e-446b-9f8a-aa46c0678f0a/chat"
 
 
 # ---------------- Helpers ----------------
@@ -61,6 +66,56 @@ def service_card(s: dict) -> str:
       <div class='bottom'><span class='price'>{money(s['price'])}</span>
       <a class='book-link' href='book?service={quote(s["name"])}' target='_self'>Book →</a></div>
     </div>"""
+
+
+def show_chat_agent(height: int = 620):
+    """n8n chat agent, styled to match the site colours."""
+    welcome = json.dumps([
+        f"Hi! Welcome to {PARLOR['name']} 💖",
+        "Ask me about services, prices, timings or booking.",
+    ], ensure_ascii=False)
+    title = json.dumps(f"{PARLOR['name']} Assistant", ensure_ascii=False)
+
+    components.html(f"""
+    <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+    <style>
+      html, body {{ margin:0; padding:6px; height:100%; box-sizing:border-box; background:transparent; }}
+      #n8n-chat {{ height:{height - 24}px; border-radius:26px; overflow:hidden;
+                  box-shadow:0 14px 36px rgba(193,75,255,.22); }}
+      :root {{
+        --chat--color-primary: #FF3CAC;
+        --chat--color-primary-shade-50: #E5358F;
+        --chat--color-primary-shade-100: #C2187A;
+        --chat--color-secondary: #7A5CFF;
+        --chat--color-secondary-shade-50: #6A3CFF;
+        --chat--header--background: linear-gradient(120deg,#FF3CAC,#C14BFF,#5B6CFF);
+        --chat--header--color: #ffffff;
+        --chat--message--user--background: #7A5CFF;
+        --chat--message--user--color: #ffffff;
+        --chat--border-radius: 18px;
+      }}
+    </style>
+    <div id="n8n-chat"></div>
+    <script type="module">
+      import {{ createChat }} from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+      createChat({{
+        webhookUrl: '{N8N_CHAT_URL}',
+        target: '#n8n-chat',
+        mode: 'fullscreen',
+        showWelcomeScreen: false,
+        initialMessages: {welcome},
+        i18n: {{
+          en: {{
+            title: {title},
+            subtitle: 'Ask us anything, we reply instantly',
+            footer: '',
+            getStarted: 'New Conversation',
+            inputPlaceholder: 'Type your question...',
+          }},
+        }},
+      }});
+    </script>
+    """, height=height)
 
 
 # ---------------- Styles ----------------
@@ -150,6 +205,11 @@ a {{text-decoration: none !important;}}
 .metric {{border-radius:22px; padding:20px 22px; color:#fff;}}
 .metric b {{font-size:2rem; display:block;}}
 
+.chat-tips {{display:flex; flex-direction:column; gap:12px;}}
+.chat-tips > div {{background:#fff; border-radius:20px; padding:16px 18px; border:1px solid #F6E4F0;
+  box-shadow: 0 8px 22px rgba(122,92,255,.08); font-size:.93rem; color:#5E4B66;}}
+.chat-tips b {{display:block; color:#2B1B33; margin-bottom:2px;}}
+
 .stButton button[kind="primary"] {{background: linear-gradient(120deg,#FF3CAC,#7A5CFF) !important; border:none !important;
   color:#fff !important; font-weight:700; padding: .7rem 1.6rem; box-shadow: 0 10px 22px rgba(229,53,143,.35);}}
 
@@ -171,7 +231,7 @@ def home():
         <h1>Look good.<br>Feel amazing.</h1>
         <p>Hair, skin, makeup and nails by friendly experts. Book your slot in under a minute.</p>
         <a class='btn btn-white' href='book' target='_self'>📅 Book now</a>
-        <a class='btn btn-ghost' href='services' target='_self'>See prices</a>
+        <a class='btn btn-ghost' href='chat' target='_self'>💬 Ask us</a>
         <div class='stats'>
           <div class='stat'><b>{len(SERVICES)}+</b>services</div>
           <div class='stat'><b>{len(STYLISTS) - 1}</b>expert stylists</div>
@@ -206,6 +266,11 @@ def home():
       <div><div class='ic' style='background:#E9E3FF'>👩‍🎨</div><b>Trained experts</b><p>Friendly stylists who listen to what you want.</p></div>
       <div><div class='ic' style='background:#FFF0D9'>🧼</div><b>Clean & hygienic</b><p>Sanitised tools and fresh towels, every time.</p></div>
     </div>""")
+
+    # ---- Chat agent on the Home page ----
+    html("<div class='section-title'>Have a <span class='grad-text'>question?</span></div>"
+         "<div class='section-sub'>Chat with our assistant — it replies instantly, any time.</div>")
+    show_chat_agent(height=540)
 
     html(f"""
     <div class='cta'>
@@ -313,6 +378,22 @@ def book():
         </div>""")
 
 
+def chat_page():
+    page_head("Ask Us 💬", "Questions about services, prices or timings? Our assistant replies instantly.")
+    left, right = st.columns([1.7, 1], gap="large")
+    with left:
+        show_chat_agent(height=640)
+    with right:
+        html(f"""
+        <div class='chat-tips'>
+          <div><b>💅 Try asking</b>"How much is a hair spa?"<br>"Do you do bridal makeup?"<br>"Are you open on Sunday?"</div>
+          <div><b>🕒 Timings</b>{PARLOR['hours']}</div>
+          <div><b>📍 Visit us</b>{PARLOR['address']}</div>
+          <div><b>📞 Call us</b>{PARLOR['phone']}</div>
+        </div>""")
+        st.page_link(book_page, label="Book an appointment", icon="📅")
+
+
 def admin():
     page_head("Staff Dashboard 🔒", "See and manage all bookings.")
     if not st.session_state.get("is_admin"):
@@ -358,10 +439,13 @@ def admin():
 
 # ---------------- Navigation ----------------
 
+book_page = st.Page(book, title="Book Now", icon="📅", url_path="book")
+
 nav = st.navigation([
     st.Page(home, title="Home", icon="🏠", default=True),
     st.Page(services_page, title="Services", icon="💅", url_path="services"),
-    st.Page(book, title="Book Now", icon="📅", url_path="book"),
+    book_page,
+    st.Page(chat_page, title="Ask Us", icon="💬", url_path="chat"),
     st.Page(admin, title="Staff", icon="🔒", url_path="staff"),
 ], position="top")
 nav.run()
